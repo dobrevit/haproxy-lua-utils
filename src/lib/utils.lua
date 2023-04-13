@@ -100,4 +100,64 @@ function _M.close_tor_circuit(circuit_identifier)
 	tcp:close()
 end
 
+-- reverse an IPv4 address
+-- e.g. 1.2.3.4 -> 4.3.2.1
+_M.reverse_ipv4 = function(ip)
+    local octets = {}
+    for octet in ip:gmatch("%d+") do
+        table.insert(octets, 1, octet)
+    end
+    return table.concat(octets, ".")
+end
+
+-- expand an IPv6 address
+-- e.g. 2001:db8::1 -> 2001:0db8:0000:0000:0000:0000:0000:0001
+_M.expand_ipv6 = function(ip)
+    local segments = {}
+    local missing_segments = 8
+
+    for segment in ip:gmatch("[%da-fA-F]+") do
+        table.insert(segments, ("%04x"):format(tonumber(segment, 16)))
+        missing_segments = missing_segments - 1
+    end
+
+    if ip:find("::", 1, true) then
+        for i = 1, missing_segments do
+            table.insert(segments, 1, "0000")
+        end
+    end
+
+    return table.concat(segments, ":")
+end
+
+-- reverse an IPv6 address
+-- e.g. 2001:db8::1 -> 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2
+_M.reverse_ipv6 = function(ip)
+    local addr = _M.expand_ipv6(ip)
+    addr = addr:gsub(":", "")
+    addr = addr:reverse()
+    local reversed = {}
+    for i = 1, #addr do
+        table.insert(reversed, addr:sub(i, i))
+        table.insert(reversed, ".")
+    end
+    -- remove trailing dot
+    table.remove(reversed, #reversed)
+    -- return reversed address
+    return table.concat(reversed)
+end
+
+-- reverse an IP v4 or v6 address and return the dotted notation
+-- e.g. 1.2.3.4 -> 4.3.2.1
+-- or 2001:db8::1 -> 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2
+_M.reverse_ip = function(ip)
+    if not _M.is_nil(ip) and ip:find(".", 1, true) then
+        return _M.reverse_ipv4(ip)
+    elseif not _M.is_nil(ip) and ip:find(":", 1, true) then
+        return _M.reverse_ipv6(ip)
+    else
+        return nil, "Invalid IP address"
+    end
+end
+
 return _M
